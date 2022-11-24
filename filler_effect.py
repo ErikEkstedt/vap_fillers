@@ -26,7 +26,7 @@ def get_args():
     )
     parser.add_argument(
         "-f",
-        "--filepath",
+        "--filler_path",
         type=str,
         default="data/uh.txt",
         help="Path to txt with fillers",
@@ -39,11 +39,16 @@ def get_args():
         help="Path to swb audio",
     )
     parser.add_argument(
-        "-o",
-        "--output_path",
+        "--data_path",
         type=str,
         default="filler_data.json",
         help="filename to save data to",
+    )
+    parser.add_argument(
+        "--fig_path",
+        type=str,
+        default=None,
+        help="filename to save figure",
     )
     parser.add_argument(
         "--context",
@@ -257,10 +262,12 @@ if __name__ == "__main__":
                 continue
             result[fill_no_fill][name] = torch.stack(tensor_list)
 
-    torch.save(result, args.output_path.replace(".json", ".pt"))
+    torch.save(result, args.data_path)
     print("Saved all data -> ", args.output_path)
 
     ############################################################
     # Figure
     ############################################################
-    fig, ax = plot_result(result)
+    if args.figpath is not None:
+        fig, ax = plot_result(result)
+        fig.savefig(args.fig_path)
