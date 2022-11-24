@@ -28,7 +28,7 @@ def get_args():
         "-f",
         "--filepath",
         type=str,
-        default="data/fillers.txt",
+        default="data/uh.txt",
         help="Path to txt with fillers",
     )
     parser.add_argument(
@@ -137,7 +137,8 @@ def plot_result(result, col_fill="r", col_nofill="b", area_alpha=0.01, plot=True
         x, pf_fill - pf_nofill, label="Diff future", color="k", linestyle="dashed"
     )
 
-    ax[-1].plot(x, ph_fill - ph_nofill, label="Fill - NOFILL", color="k")
+    # Entropy, H
+    ax[-1].plot(x, ph_fill - ph_nofill, label="H diff", color="k")
     ax[-1].fill_between(
         x, ph_fill - ph_fill_s, ph_fill + ph_fill_s, alpha=area_alpha, color=col_fill
     )
@@ -167,32 +168,8 @@ if __name__ == "__main__":
     args = get_args()
     session_to_rel_path = read_json(REL_PATH)
     model = load_model(args.checkpoint)
-
-    # fillers = read_txt(args.filepath)
+    fillers = read_txt(args.filepath)
     ok_files = read_txt(TEST_FILE_PATH)
-    fillers = [
-        "2001 44.3 45.5 0 eh",
-        "4501 24.3 25.5 0 ehm",
-        "2201 44.3 45.5 0 eh",
-        "3502 24.3 25.5 0 ehm",
-        "4101 44.3 45.5 0 eh",
-        "4300 24.3 25.5 0 ehm",
-        "3946 43 45 0 eh",
-        "3255 43 45 0 eh",
-        "3377 43 45 0 eh",
-        "2441 43 45 0 eh",
-        "3439 43 45 0 eh",
-        "2887 43 45 0 eh",
-        "3195 43 45 0 eh",
-        "2657 43 45 0 eh",
-        "2934 43 45 0 eh",
-        "3716 43 45 0 eh",
-        "2576 43 45 0 eh",
-        "4055 43 45 0 eh",
-        "2752 43 45 0 eh",
-        "4153 43 45 0 eh",
-        "4004 43 45 0 eh",
-    ]
     for k, v in vars(args).items():
         print(f"{k}: {v}")
     print("Fillers: ", len(fillers))
@@ -200,19 +177,22 @@ if __name__ == "__main__":
 
     skipped_by_file = 0
     skipped_by_context = 0
+    # TODO: should we save session and timestamps with the data?
     result = {
         "filler": {"type": [], "p_now": [], "p_fut": [], "H": []},
         "no_filler": {"type": [], "p_now": [], "p_fut": [], "H": []},
     }
     for filler in tqdm(fillers, desc="Extract filler probs"):
-        session, fill_start, fill_end, speaker, fill_type = filler.split()
+        session, fill_start, fill_end, speaker = filler.split()
         # session, fill_start, fill_end, speaker, fill_type = "2001", 44, 46, 0, "eh"
+
+        # 3717 36.55 37.001 B
 
         if session not in ok_files:
             skipped_by_file += 1
             continue
 
-        speaker = int(speaker)
+        speaker = 0 if speaker == "A" else 1
         fill_start = float(fill_start)
         fill_end = float(fill_end)
         start = fill_start - args.context
@@ -239,7 +219,7 @@ if __name__ == "__main__":
 
         out = model.probs(wav_filler)
 
-        result["filler"]["type"].append(fill_type)
+        # result["filler"]["type"].append(fill_type)
         result["filler"]["p_now"].append(out["p_now"][0, -sil_frames:, speaker].cpu())
         result["filler"]["p_fut"].append(
             out["p_future"][0, -sil_frames:, speaker].cpu()
@@ -256,7 +236,7 @@ if __name__ == "__main__":
             w_no_filler, silence=args.silence, sample_rate=model.sample_rate
         )
         out = model.probs(w_no_filler)
-        result["no_filler"]["type"].append(fill_type)
+        # result["no_filler"]["type"].append(fill_type)
         result["no_filler"]["p_now"].append(
             out["p_now"][0, -sil_frames:, speaker].cpu()
         )
