@@ -28,8 +28,6 @@ def get_args():
         "-f",
         "--filler_path",
         type=str,
-        default="data/uh.txt",
-        help="Path to txt with fillers",
     )
     parser.add_argument(
         "-r",
@@ -173,7 +171,7 @@ if __name__ == "__main__":
     args = get_args()
     session_to_rel_path = read_json(REL_PATH)
     model = load_model(args.checkpoint)
-    fillers = read_txt(args.filepath)
+    fillers = read_txt(args.filler_path)
     ok_files = read_txt(TEST_FILE_PATH)
     for k, v in vars(args).items():
         print(f"{k}: {v}")
@@ -263,11 +261,11 @@ if __name__ == "__main__":
             result[fill_no_fill][name] = torch.stack(tensor_list)
 
     torch.save(result, args.data_path)
-    print("Saved all data -> ", args.output_path)
+    print("Saved all data -> ", args.data_path)
 
     ############################################################
     # Figure
     ############################################################
-    if args.figpath is not None:
+    if args.fig_path is not None:
         fig, ax = plot_result(result)
         fig.savefig(args.fig_path)
