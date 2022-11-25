@@ -5,11 +5,9 @@ import matplotlib.pyplot as plt
 import torch
 
 from vap.audio import load_waveform
-from vap.model import VAPModel
-from vap.utils import everything_deterministic, read_txt, read_json
+from vap.utils import read_txt, read_json
+from utils import load_model, pad_silence
 
-everything_deterministic()
-torch.manual_seed(0)
 
 REL_PATH = "data/relative_audio_path.json"
 TEST_FILE_PATH = "data/test.txt"
@@ -62,25 +60,6 @@ def get_args():
     )
     args = parser.parse_args()
     return args
-
-
-def load_model(checkpoint):
-    print("Load Model...")
-    model = VAPModel.load_from_checkpoint(checkpoint)
-    model = model.eval()
-    if torch.cuda.is_available():
-        model = model.to("cuda")
-    return model
-
-
-def pad_silence(waveform, silence=10, sample_rate=16_000):
-    assert (
-        waveform.ndim == 3
-    ), f"Expects waveform of shape (B, C, n_samples) but got {waveform.shape}"
-    B, C, _ = waveform.size()
-    sil_samples = int(silence * sample_rate)
-    z = torch.zeros((B, C, sil_samples), device=waveform.device)
-    return torch.cat([waveform, z], dim=-1)
 
 
 def plot_result(result, col_fill="r", col_nofill="b", area_alpha=0.01, plot=True):
