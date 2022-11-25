@@ -118,20 +118,21 @@ def plot_diff(dm, fdm=None, filler="UM", plot=True):
 
 if __name__ == "__main__":
 
-    # result = torch.load("filler_um_data.pt")
-    result = torch.load("filler_uh.pt")
+    result = torch.load("data/filler_uh.pt")
     fig, ax = plot_result(result, filler="UH", frame_hz=50, area_alpha=0.05, plot=False)
-    diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]
-    fdiff = result["filler"]["p_fut"] - result["no_filler"]["p_fut"]
-    dm = diff.mean(0) * 100
-    fdm = fdiff.mean(0) * 100
-    _ = plot_diff(dm, fdm, filler="UH", plot=False)
+    diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]  # now
+    fdiff = result["filler"]["p_fut"] - result["no_filler"]["p_fut"]  # future
+    dm = diff.mean(0) * 100  # percentage
+    fdm = fdiff.mean(0) * 100  # percentage
+    fig2, _ = plot_diff(dm, fdm, filler="UH", plot=False)
     ###################################################################
-    result = torch.load("filler_um_data.pt")
-    fig, ax = plot_result(result, filler="UM", frame_hz=50, area_alpha=0.05, plot=False)
-    diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]
-    fdiff = result["filler"]["p_fut"] - result["no_filler"]["p_fut"]
-    dm = diff.mean(0) * 100
-    fdm = fdiff.mean(0) * 100
-    _ = plot_diff(dm, fdm, filler="UM", plot=False)
+    result = torch.load("data/filler_um.pt")
+    fig3, ax = plot_result(
+        result, filler="UM", frame_hz=50, area_alpha=0.05, plot=False
+    )
+    diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]  # now
+    fdiff = result["filler"]["p_fut"] - result["no_filler"]["p_fut"]  # future
+    dm = diff.mean(0) * 100  # percentage
+    fdm = fdiff.mean(0) * 100  # percentage
+    fig4, _ = plot_diff(dm, fdm, filler="UM", plot=False)
     plt.show()
