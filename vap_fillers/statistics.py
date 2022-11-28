@@ -118,9 +118,31 @@ def plot_diff(dm, fdm=None, filler="UM", plot=True):
 
 if __name__ == "__main__":
 
+    # TODO: find examples where omission of a filler becomes a turn-shift
+    # TODO: prosody-extraction over fillers
+    # TODO: use tts with/without fillers
+    # TODO: bc
+
     result = torch.load("data/filler_uh.pt")
-    fig, ax = plot_result(result, filler="UH", frame_hz=50, area_alpha=0.05, plot=False)
+
     diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]  # now
+    diff = diff.mean(-1)
+    n = diff.histc(bins=60, min=0, max=0.6)
+    # n = n.cumsum(0)
+    x = torch.arange(len(n))
+    fig, ax = plt.subplots(1, 1, figsize=(12, 12))
+    ax.bar(x, n)
+    plt.pause(0.1)
+
+    idx = torch.where(diff.mean(-1) > 0.4)[0]
+
+    idx = torch.where(diff.mean(-1) < 0.1)[0]
+
+    fig, ax = plot_result(result, filler="UH", frame_hz=50, area_alpha=0.05, plot=False)
+
+    diff = result["filler"]["p_now"] - result["no_filler"]["p_now"]  # now
+    diff.mean(-1).max()
+
     fdiff = result["filler"]["p_fut"] - result["no_filler"]["p_fut"]  # future
     dm = diff.mean(0) * 100  # percentage
     fdm = fdiff.mean(0) * 100  # percentage

@@ -90,11 +90,49 @@ def plot_model_sample(d, out):
     return fig
 
 
-if __name__ == "__main__":
+def plot_out(waveform, out, title="sample"):
+    fig, ax = plt.subplots(2, 1, figsize=(12, 12), sharex=True)
+    ax[0].set_title(title)
+    plot_mel_spectrogram(waveform[:, 0], ax=[ax[0]])
+    ax[0].set_ylabel("Mels")
 
+    # plot model output
+    x = torch.arange(out["p_now"].shape[1]) / model.frame_hz
+    ax[1].plot(
+        x,
+        out["p_now"][0, :, 0].cpu(),
+        color="r",
+        linewidth=2,
+        label="HOLD now",
+        alpha=0.6,
+    )
+    ax[1].plot(
+        x,
+        out["p_future"][0, :, 0].cpu(),
+        color="r",
+        linestyle="dashed",
+        linewidth=2,
+        label="HOLD now",
+        alpha=0.6,
+    )
+    ax[1].axhline(0.5, linewidth=1, linestyle="dashed", color="k")
+    ax[1].set_ylabel("HOLD prob")
+    ax[1].legend(loc="lower left")
+    a = ax[1].twinx()
+    a.plot(x, out["H"][0].cpu(), color="g", linewidth=2, label="Entropy")
+    a.set_ylim([0, 8])
+    a.legend(loc="lower right")
+    a.set_ylabel("Entropy")
+    ax[1].set_ylim([0, 1])
+    ax[1].set_xlabel("seconds")
+    plt.subplots_adjust(left=0.05, bottom=None, right=0.95, top=0.95, hspace=0.03)
+    return fig, ax
+
+
+def hesitation_examples():
     model = load_model()
-    wavpaths = glob.glob(join(DIRPATH, "**/*.wav"), recursive=True)
 
+    wavpaths = glob.glob(join(DIRPATH, "**/*.wav"), recursive=True)
     makedirs(MODELOUT, exist_ok=True)
     all_out = {"wavpaths": [], "p_now": [], "p_future": [], "H": []}
     pad_frame = 0
@@ -102,6 +140,8 @@ if __name__ == "__main__":
     entropy_rate = {"slow": [], "medium": [], "fast": []}
     entropy_pitch = {"low": [], "medium": [], "high": []}
     for wavpath in tqdm(wavpaths):
+        if not "medial" in wavpath:
+            continue
         name, rate, pitch, filler_pos = get_sample_info(wavpath)
         waveform, _ = load_waveform(wavpath, sample_rate=model.sample_rate)
         tg_path = wav_path_to_tg_path(wavpath)
@@ -134,7 +174,6 @@ if __name__ == "__main__":
         entropy_filler[filler_pos].append(ent)
         entropy_rate[rate].append(ent)
         entropy_pitch[pitch].append(ent)
-
         ###############################################
         # Figure
         ###############################################
@@ -171,3 +210,52 @@ if __name__ == "__main__":
     #  'pitch': {'low': tensor(2.4893),
     #   'medium': tensor(2.3135),
     #   'high': tensor(2.2480)}}
+
+
+if __name__ == "__main__":
+
+    model = load_model()
+
+    bob_path = "data/bob.wav"
+    gab_path = "data/gabriel.wav"
+
+    waveform, sr = load_waveform(bob_path, sample_rate=model.sample_rate)
+    # Pad as stereo channels
+    waveform = model._pad_zero_channel(waveform.unsqueeze(1))
+    # add zeros
+    waveform = pad_silence(waveform, silence=3)
+    # Model forward
+    out = model.probs(waveform.to(model.device))
+    fig, ax = plot_out(waveform, out, title="bob")
+    plt.pause(0.1)
+    ###################################################
+    waveform, sr = load_waveform(gab_path, sample_rate=model.sample_rate)
+    # Pad as stereo channels
+    waveform = model._pad_zero_channel(waveform.unsqueeze(1))
+    # add zeros
+    waveform = pad_silence(waveform, silence=3)
+    # Model forward
+    out = model.probs(waveform.to(model.device))
+    fig2, ax2 = plot_out(waveform, out, title="Gabriel")
+    plt.pause(0.1)
+
+    pre_path = "data/gabriel_cut_before_fp.wav"
+    post_path = "data/gabriel_cut_after_fp.wav"
+    waveform, sr = load_waveform(pre_path, sample_rate=model.sample_rate)
+    # Pad as stereo channels
+    waveform = model._pad_zero_channel(waveform.unsqueeze(1))
+    # add zeros
+    waveform = pad_silence(waveform, silence=3)
+    # Model forward
+    out = model.probs(waveform.to(model.device))
+    fig, ax = plot_out(waveform, out, title="BEFORE")
+    ###################################################
+    waveform, sr = load_waveform(post_path, sample_rate=model.sample_rate)
+    # Pad as stereo channels
+    waveform = model._pad_zero_channel(waveform.unsqueeze(1))
+    # add zeros
+    waveform = pad_silence(waveform, silence=3)
+    # Model forward
+    out = model.probs(waveform.to(model.device))
+    fig2, ax2 = plot_out(waveform, out, title="AFTER")
+    plt.show()
