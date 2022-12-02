@@ -270,7 +270,7 @@ def extract_filler_segment(filler_id, filler_row, model, args):
     sil_start_frame = out_omit["p_now"].shape[1] - silence_frames
 
     now_cross, fut_cross = find_shift_cross(
-        out_filler, speaker, start_frame=sil_start_frame
+        out_omit, speaker, start_frame=sil_start_frame
     )
 
     # Save figure
