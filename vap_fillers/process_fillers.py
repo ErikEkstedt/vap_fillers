@@ -1,5 +1,6 @@
 from argparse import ArgumentParser
-from os.path import expanduser, join
+from os.path import expanduser, join, exists
+from os import remove
 from tqdm import tqdm
 from pathlib import Path
 import matplotlib.pyplot as plt
@@ -325,17 +326,22 @@ if __name__ == "__main__":
     print("-" * 50)
 
     #######################################################################
-    processed_fillers = [
-        "SESSION FILLE-ID S E SPEAKER UH_OR_UM WITH_OR_OMIT_FILLER NOW_CROSS FUT_CROSS FILLER_F0 FILLER_INT"
-    ]
+
+    filepath = join(args.output, "filler_output.txt")
+    result_file = open(filepath, "w")
+    heading = "SESSION FILLE-ID S E SPEAKER UH_OR_UM WITH_OR_OMIT_FILLER NOW_CROSS FUT_CROSS FILLER_F0 FILLER_INT"
+    result_file.write(heading + "\n")
     skipped = {"context": 0, "f0": 0, "intensity": 0}
     for filler_id, filler_row in enumerate(tqdm(fillers, desc="Process fillers")):
         skip_or_rows = extract_filler_segment(filler_id, filler_row, model, args)
         if isinstance(skip_or_rows, str):
             skipped[skip_or_rows] += 1
             continue
-        processed_fillers.append(skip_or_rows[0])
-        processed_fillers.append(skip_or_rows[1])
+        result_file.write(skip_or_rows[0] + "\n")
+        result_file.write(skip_or_rows[1] + "\n")
+        # processed_fillers.append()
+        # processed_fillers.append(skip_or_rows[1])
+    result_file.close()
     print("Processesed: ", len(processed_fillers) - 1)
 
     total_skips = sum([v for _, v in skipped.items()])
