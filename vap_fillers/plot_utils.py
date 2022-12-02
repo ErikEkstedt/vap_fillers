@@ -4,6 +4,29 @@ import matplotlib.pyplot as plt
 from vap.audio import log_mel_spectrogram
 
 
+def plot_speaker_probs(x, p, ax, label="P", alpha=0.6):
+    px = p - 0.5
+    z = torch.zeros_like(p)
+    ax.fill_between(x, px, z, where=px > 0, color="b", label=f"A {label}", alpha=alpha)
+    ax.fill_between(
+        x, px, z, where=px < 0, color="orange", label=f"B {label}", alpha=alpha
+    )
+    ax.set_ylim([-0.5, 0.5])
+    return ax
+
+
+def plot_bc_probs(x, p_bc, ax, alpha=0.6):
+    z = torch.zeros_like(p_bc[:, 0])
+    ax.fill_between(x, p_bc[:, 0], z, color="b", label=f"A Short", alpha=alpha)
+    ax.fill_between(x, -p_bc[:, 1], z, color="orange", label=f"B Short", alpha=alpha)
+    ax.set_ylim([-1, 1])
+
+
+def plot_entropy(x, h, ax):
+    ax.plot(x, h.cpu(), label="H, entropy", color="green", linewidth=3)
+    ax.set_ylim([0, 8])
+
+
 def plot_waveform(y, sr=16_000, max_points=1000, ax=None):
     assert (
         y.ndim == 2
@@ -36,16 +59,10 @@ def plot_waveform(y, sr=16_000, max_points=1000, ax=None):
 def plot_mel_spectrogram(
     y, sample_rate=16_000, hop_time=0.02, frame_time=0.05, n_mels=80, ax=None
 ):
-    assert (
-        y.ndim == 2
-    ), f"Expects waveform of shape (N_CHANNELS, N_SAMPLES) but got {y.shape}"
-
     if ax is None:
         fig, ax = plt.subplots(2, 1, figsize=(12, 4), sharex=True)
     else:
         fig = None
-
-    n_channels = y.shape[0]
 
     duration = y.shape[-1] / sample_rate
     xmin, xmax = 0, duration
@@ -60,7 +77,6 @@ def plot_mel_spectrogram(
         hop_length=hop_length,
         sample_rate=sample_rate,
     )
-
     ax[0].imshow(
         spec[0],
         interpolation="none",
@@ -68,15 +84,13 @@ def plot_mel_spectrogram(
         origin="lower",
         extent=[xmin, xmax, ymin, ymax],
     )
-
-    if n_channels > 1:
-        ax[1].imshow(
-            spec[1],
-            interpolation="none",
-            aspect="auto",
-            origin="lower",
-            extent=[xmin, xmax, ymin, ymax],
-        )
+    ax[1].imshow(
+        spec[1],
+        interpolation="none",
+        aspect="auto",
+        origin="lower",
+        extent=[xmin, xmax, ymin, ymax],
+    )
 
     if fig is not None:
         plt.subplots_adjust(
