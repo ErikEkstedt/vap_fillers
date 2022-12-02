@@ -332,6 +332,7 @@ if __name__ == "__main__":
     heading = "SESSION FILLE-ID S E SPEAKER UH_OR_UM WITH_OR_OMIT_FILLER NOW_CROSS FUT_CROSS FILLER_F0 FILLER_INT"
     result_file.write(heading + "\n")
     skipped = {"context": 0, "f0": 0, "intensity": 0}
+    processed = 0
     for filler_id, filler_row in enumerate(tqdm(fillers, desc="Process fillers")):
         skip_or_rows = extract_filler_segment(filler_id, filler_row, model, args)
         if isinstance(skip_or_rows, str):
@@ -339,10 +340,10 @@ if __name__ == "__main__":
             continue
         result_file.write(skip_or_rows[0] + "\n")
         result_file.write(skip_or_rows[1] + "\n")
-        # processed_fillers.append()
-        # processed_fillers.append(skip_or_rows[1])
+        processed += 1
     result_file.close()
-    print("Processesed: ", len(processed_fillers) - 1)
+
+    print(f"Processed {processed} fillers")
 
     total_skips = sum([v for _, v in skipped.items()])
     print("-" * 50)
