@@ -7,49 +7,50 @@ from vap.utils import read_txt, read_json, write_json
 # Copied from website
 # http://compprag.christopherpotts.net/swda.html#annotations
 DAS = """
-1	Statement-non-opinion	sd	Me, I'm in the legal department.	72824	75145
-2	Acknowledge (Backchannel)	b	Uh-huh.	37096	38298
-3	Statement-opinion	sv	I think it's great	25197	26428
-4	Agree/Accept	aa	That's exactly it.	10820	11133
-5	Abandoned or Turn-Exit	%	So, -	10569	15550
-6	Appreciation	ba	I can imagine.	4633	4765
-7	Yes-No-Question	qy	Do you have to have any special training?	4624	4727
-8	Non-verbal	x	[Laughter], [Throat_clearing]	3548	3630
-9	Yes answers	ny	Yes.	2934	3034
-10	Conventional-closing	fc	Well, it's been nice talking to you.	2486	2582
-11	Uninterpretable	%	But, uh, yeah	2158	15550
-12	Wh-Question	qw	Well, how old are you?	1911	1979
-13	No answers	nn	No.	1340	1377
-14	Response Acknowledgement	bk	Oh, okay.	1277	1306
-15	Hedge	h	I don't know if I'm making any sense or not.	1182	1226
-16	Declarative Yes-No-Question	qy^d	So you can afford to get a house?	1174	1219
-17	Other	fo_o_fw_by_bc	Well give me a break, you know.	1074	883
-18	Backchannel in question form	bh	Is that right?	1019	1053
-19	Quotation	^q	You can't be pregnant and have cats	934	983
-20	Summarize/reformulate	bf	Oh, you mean you switched schools for the kids.	919	952
-21	Affirmative non-yes answers	na	It is.	836	847
-22	Action-directive	ad	Why don't you go first	719	746
-23	Collaborative Completion	^2	Who aren't contributing.	699	723
-24	Repeat-phrase	b^m	Oh, fajitas	660	688
-25	Open-Question	qo	How about you?	632	656
-26	Rhetorical-Questions	qh	Who would steal a newspaper?	557	575
-27	Hold before answer/agreement	^h	I'm drawing a blank.	540	556
-28	Reject	ar	Well, no	338	346
-29	Negative non-no answers	ng	Uh, not a whole lot.	292	302
-30	Signal-non-understanding	br	Excuse me?	288	298
-31	Other answers	no	I don't know	279	286
-32	Conventional-opening	fp	How are you?	220	225
-33	Or-Clause	qrr	or is it more of a company?	207	209
-34	Dispreferred answers	arp_nd	Well, not so much that.	205	207
-35	3rd-party-talk	t3	My goodness, Diane, get down from there.	115	117
-36	Offers, Options, Commits	oo_co_cc	I'll have to check that out	109	110
-37	Self-talk	t1	What's the word I'm looking for	102	103
-38	Downplayer	bd	That's all right.	100	103
-39	Maybe/Accept-part	aap_am	Something like that	98	105
-40	Tag-Question	^g	Right?	93	92
-41	Declarative Wh-Question	qw^d	You are what kind of buff?	80	80
-42	Apology	fa	I'm sorry.	76	79
-43	Thanking	ft	Hey thanks a lot	67\t78
+   NAME                      act_tag        trainCount   Count    Example     
+1  Statement-non-opinion        sd            72824      75145    "Me, I'm in the legal department."                  
+2  Acknowledge-(Backchannel)    b             37096      38298    "Uh-huh. "                                          
+3  Statement-opinion            sv            25197      26428    "I think it's great "                               
+4  Agree/Accept                 aa            10820      11133    "That's exactly it. "                               
+5  Abandoned-or-Turn-Exit       %             10569      15550    "So, - "                                            
+6  Appreciation                 ba            4633       4765     "I can imagine. "                                   
+7  Yes-No-Question              qy            4624       4727     "Do you have to have any special training? "        
+8  Non-verbal                   x             3548       3630     "[Laughter], [Throat_clearing] "                    
+9  Yes-answers                  ny            2934       3034     "Yes. "                                             
+10 Conventional-closing         fc            2486       2582     "Well, it's been nice talking to you. "             
+11 Uninterpretable              %             2158       15550    "But, uh, yeah "                                    
+12 Wh-Question                  qw            1911       1979     "Well, how old are you? "                           
+13 No-answers                   nn            1340       1377     "No. "                                              
+14 Response-Acknowledgement     bk            1277       1306     "Oh, okay. "                                        
+15 Hedge                        h             1182       1226     "I don't know if I'm making any sense or not. "     
+16 Declarative-Yes-No-Question  qy^d          1174       1219     "So you can afford to get a house? "                
+17 Other                        fo_o_fw_by_bc 1074       883      "Well give me a break, you know. "                  
+18 Backchannel-in-question-form bh            1019       1053     "Is that right? "                                   
+19 Quotation                    ^q            934        983      "You can't be pregnant and have cats "              
+20 Summarize/reformulate        bf            919        952      "Oh, you mean you switched schools for the kids. "  
+21 Affirmative-non-yes-answers  na            836        847      "It is. "                                           
+22 Action-directive             ad            719        746      "Why don't you go first "                           
+23 Collaborative-Completion     ^2            699        723      "Who aren't contributing. "                         
+24 Repeat-phrase                b^m           660        688      "Oh, fajitas "                                      
+25 Open-Question                qo            632        656      "How about you? "                                   
+26 Rhetorical-Questions         qh            557        575      "Who would steal a newspaper? "                     
+27 Hold-before-answer/agreement ^h            540        556      "I'm drawing a blank. "                             
+28 Reject                       ar            338        346      "Well, no "                                         
+29 Negative-non-no-answers      ng            292        302      "Uh, not a whole lot. "                             
+30 Signal-non-understanding     br            288        298      "Excuse me? "                                       
+31 Other-answers                no            279        286      "I don't know "                                     
+32 Conventional-opening         fp            220        225      "How are you? "                                     
+33 Or-Clause                    qrr           207        209      "or is it more of a company? "                      
+34 Dispreferred-answers         arp_nd        205        207      "Well, not so much that. "                          
+35 3rd-party-talk               t3            115        117      "My goodness, Diane, get down from there. "         
+36 Offers,Options,Commits       oo_co_cc      109        110      "I'll have to check that out "                      
+37 Self-talk                    t1            102        103      "What's the word I'm looking for "                  
+38 Downplayer                   bd            100        103      "That's all right. "                                
+39 Maybe/Accept-part            aap_am        98         105      "Something like that "                              
+40 Tag-Question                 ^g            93         92       "Right? "                                           
+41 Declarative-Wh-Question      qw^d          80         80       "You are what kind of buff? "                       
+42 Apology                      fa            76         79       "I'm sorry. "                                       
+43 Thanking                     ft            67         78       "Hey thanks a lot "                                 
 """
 
 ROOT = "data/swb_da"
