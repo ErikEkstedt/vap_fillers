@@ -36,7 +36,11 @@ COLUMNS = [
     "speaker",
     "uh_or_um",
     "f0",
+    "f0_global_m",
+    "f0_global_s",
     "intensity",
+    "intensity_global_m",
+    "intensity_global_s",
     "da",
     "da_loc",
     "da_n_words",
@@ -155,14 +159,27 @@ def extract_prosody(y, session, speaker, sample_rate=16_000, hop_time=0.01):
     speaker = "A" if speaker == 0 else "B"
 
     p = pitch_praat(y, hop_time=hop_time, sample_rate=sample_rate)
-    p = (p - SESSION_F0[session][speaker]["mean"]) / SESSION_F0[session][speaker]["std"]
+    pm = SESSION_F0[session][speaker]["mean"]
+    ps = SESSION_F0[session][speaker]["std"]
+    p = (p - pm) / ps
 
     i = intensity_praat(y, hop_time=hop_time, sample_rate=sample_rate)
-    i = (i - SESSION_INTENS[session][speaker]["mean"]) / SESSION_INTENS[session][
-        speaker
-    ]["std"]
+    im = SESSION_INTENS[session][speaker]["mean"]
+    ist = SESSION_INTENS[session][speaker]["std"]
+    i = (i - im) / ist
 
-    return round(p.mean().item(), 3), round(i.mean().item(), 3)
+    return {
+        "f0": {
+            "filler": round(p.mean().item(), 3),
+            "mean": round(pm, 3),
+            "std": round(ps, 3),
+        },
+        "intensity": {
+            "filler": round(i.mean().item(), 3),
+            "mean": round(im, 3),
+            "std": round(ist, 3),
+        },
+    }
 
 
 def find_shift_cross(out, speaker, start_frame, cutoff=0.5):
@@ -248,7 +265,7 @@ def extract_filler_out_and_prosody(
         tmp_start = tmp_end - int(0.11 * model.sample_rate)
         only_filler_wav = waveform[..., tmp_start:tmp_end]
 
-    filler_f0, filler_int = extract_prosody(
+    prosody = extract_prosody(
         only_filler_wav, session, speaker, sample_rate=model.sample_rate
     )
 
@@ -286,8 +303,8 @@ def extract_filler_out_and_prosody(
     return {
         "now_cross": now_cross,
         "fut_cross": fut_cross,
-        "f0": filler_f0,
-        "intensity": filler_int,
+        "f0": prosody["f0"],
+        "intensity": prosody["intensity"],
     }
 
 
@@ -429,8 +446,12 @@ def extract_filler_segment(filler_id, filler_row, model, args):
         "end": e,
         "speaker": speaker,
         "uh_or_um": uh_or_um,
-        "f0": filler_info["f0"],
-        "intensity": filler_info["intensity"],
+        "f0": filler_info["f0"]["filler"],
+        "f0_global_m": filler_info["f0"]["mean"],
+        "f0_global_s": filler_info["f0"]["std"],
+        "intensity": filler_info["intensity"]["filler"],
+        "intensity_global_m": filler_info["intensity"]["mean"],
+        "intensity_global_s": filler_info["intensity"]["std"],
         "da": da,
         "da_loc": da_loc,
         "da_n_words": da_n_words,
@@ -461,11 +482,14 @@ if __name__ == "__main__":
 
     all_filler_data = []
     processed = 0
-    for filler_id, filler_row in enumerate(tqdm(fillers, desc="Process fillers")):
-        row_dict = extract_filler_segment(filler_id, filler_row, model, args)
-        if row_dict is not None:
-            all_filler_data.append(row_dict)
-        processed += 1
+    try:
+        for filler_id, filler_row in enumerate(tqdm(fillers, desc="Process fillers")):
+            row_dict = extract_filler_segment(filler_id, filler_row, model, args)
+            if row_dict is not None:
+                all_filler_data.append(row_dict)
+            processed += 1
+    except KeyboardInterrupt:
+        print("ABORTED")
     skipped = processed - len(all_filler_data)
     print(f"Skipped: {skipped} (by context)")
     df = pd.DataFrame(all_filler_data)
