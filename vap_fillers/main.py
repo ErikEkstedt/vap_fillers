@@ -3,9 +3,6 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-from vap.utils import read_txt
-from vap_fillers.dialog_act_filler_matching import plot_filler_da_loc_distribution
-
 
 def calc_cross_diff(fillers, col_name="NOW_CROSS"):
     columns = [
@@ -107,117 +104,86 @@ def combine_da_and_prosody_info():
     df_new.to_csv("data/all_filler_info.csv", index=False)
 
 
-if __name__ == "__main__":
-
-    df = pd.read_csv("data/all_filler_info.csv")
-
-    filler_cross = df.loc[df["NOW_CROSS"] > 0]
-
-    f = df.loc[df["NOW_CROSS"] == -1]
-    f = f.loc[f["DIFF_NOW_CROSS"] != 0]
-
-    df = pd.read_csv(
-        "data/test_fillers_dal.txt",
-        # names = ["SESSION", "START", "END", "SPEAKER", "UH_OR_UM", "LOC", "WORDS_IN_DA", "DA"]
-        names=["SESSION", "S", "E", "SPEAKER", "UH_OR_UM", "LOC", "WORDS_IN_DA", "DA"],
+def plot_prosody(df, xmin=-6, xmax=3, n_bins=50, min_duration=0.11, plot=True):
+    fig, ax = plt.subplots(2, 2, figsize=(12, 8))
+    um_f0 = (
+        df.loc[:, "f0"].loc[df["uh_or_um"] == "um"].loc[df["duration"] >= min_duration]
     )
-    df = df.sort_values("SESSION")
-    df2 = pd.read_csv("results/fillers/filler_output.txt", sep=" ")
-    df2 = df2.sort_values("SESSION")
+    uh_f0 = (
+        df.loc[:, "f0"].loc[df["uh_or_um"] == "uh"].loc[df["duration"] >= min_duration]
+    )
+    um_in = (
+        df.loc[:, "intensity"]
+        .loc[df["uh_or_um"] == "um"]
+        .loc[df["duration"] >= min_duration]
+    )
+    uh_in = (
+        df.loc[:, "intensity"]
+        .loc[df["uh_or_um"] == "uh"]
+        .loc[df["duration"] >= min_duration]
+    )
+    um_f0.hist(bins=n_bins, color="b", range=(xmin, xmax), ax=ax[0, 0], label="UM F0")
+    uh_f0.hist(bins=n_bins, color="r", range=(xmin, xmax), ax=ax[1, 0], label="UH F0")
+    ax[0, 0].axvline(0, color="k", linewidth=2, linestyle="dashed")
+    ax[1, 0].axvline(0, color="k", linewidth=2, linestyle="dashed")
+    ax[0, 0].set_xlim([xmin, xmax])
+    ax[1, 0].set_xlim([xmin, xmax])
+    um_in.hist(bins=n_bins, color="b", range=(xmin, xmax), ax=ax[0, 1], label="UM I")
+    uh_in.hist(bins=n_bins, color="r", range=(xmin, xmax), ax=ax[1, 1], label="UH I")
+    ax[0, 1].axvline(0, color="k", linewidth=2, linestyle="dashed")
+    ax[1, 1].axvline(0, color="k", linewidth=2, linestyle="dashed")
+    ax[0, 1].set_xlim([xmin, xmax])
+    ax[1, 1].set_xlim([xmin, xmax])
+    for aa in ax:
+        for a in aa:
+            a.legend()
+    if plot:
+        plt.pause(0.1)
+    return fig, ax
 
-    columns = [
-        "SESSION",
-        "FILLE-ID",
-        "S",
-        "E",
-        "SPEAKER",
-        "UH_OR_UM",
-        "WITH_OR_OMIT_FILLER",
-        "NOW_CROSS",
-        "FUT_CROSS",
-        "FILLER_F0",
-        "FILLER_INT",
-    ]
 
-    # Add 2 columns for cross-differences
-    # Add 3 columns for "LOC", "WORDS_IN_DA", "DA"
+def plot_diff(df, min_frame_cross=0, max_frame_cross=498, n_bins=50, plot=True):
+    """"""
+    # condition to only use entries
+    # min_frame_cross <= entry-cross <= max_frame_cross
+    condition = min_frame_cross <= df["filler_now_cross"].values
+    condition = np.logical_and(condition, df["filler_now_cross"] <= max_frame_cross)
 
-    # Combine the information by looking at start time
+    fnc = df[condition]["filler_now_cross"]
+    nnc = df[condition]["omit_now_cross"]
+    dd = df[condition]["diff"]
 
-    df = pd.read_csv("data/all_filler_info.csv")
+    # fnc = df[df["filler_now_cross"] >= min_frame_cross]["filler_now_cross"]
+    # nnc = df[df["omit_now_cross"] >= min_frame_cross]["omit_now_cross"]
+    # dd = df[df["omit_now_cross"] >= min_frame_cross]["diff"]
+    fig, ax = plt.subplots(3, 1, figsize=(8, 8))
+    fig.suptitle(f"Diff (min_frame_cross: {min_frame_cross})")
+    fnc.hist(bins=n_bins, ax=ax[0], color="b", label="Filler")
+    ax[0].axvline(fnc.mean(), color="k", label=f"Filler mean {round(fnc.mean(), 1)}")
+    nnc.hist(bins=n_bins, ax=ax[1], color="g", label="Omitted")
+    ax[1].axvline(nnc.mean(), color="k", label=f"Omitted mean {round(nnc.mean(), 1)}")
+    dd.hist(bins=n_bins, ax=ax[2], color="r", label="Diff")
+    ax[2].axvline(dd.mean(), color="k", label=f"diff mean {round(dd.mean(), 1)}")
+    for a in ax:
+        a.legend()
+    plt.tight_layout()
 
-    # fillers = np.array([f.split(",") for f in read_txt("data/test_fillers_dal.txt")])
-    # fig, _ = plot_filler_da_loc_distribution(fillers)
-    # plt.show()
+    if plot:
+        plt.pause(0.1)
+    return fig, ax
 
-    d = read_txt("results/fillers/filler_output.txt")
-    fillers = np.array([f.split() for f in d])
-    header = list(fillers[0])
-    fillers = fillers[1:]
 
-    # with pandas
+if __name__ == "__main__":
+    df = pd.read_csv("results/filler_info/filler_info.csv")
+    df["diff"] = df.loc[:, "filler_now_cross"] - df.loc[:, "omit_now_cross"]
+    df["duration"] = df.loc[:, "end"] - df.loc[:, "start"]
+    for c in list(df.columns):
+        print(c)
 
-    # 1. Add a column with the difference of NOW: with_fill - omit_fill, (FUT: with_fill - omit_fill)
-    # 2. Remove all rows where cross=-1 (don't terminate)
-    #       - Keep all fillers which made a difference
-    # 3. How to handle the case where the filler cross=-1 and no_fill 0 < cross<= 500
-    # 4. Find filler-id where the differences are large
-    # 5. Find filler-id where the differences are large and cross happens < 200 (fast)
-
-    # Cross
-    # Remove where both filler/nofill has p_cross=-1, neither terminates
-    #
-
-    df["NOW_CROSS"].mean()
-
-    uh_df = df.loc[lambda x: x["UH_OR_UM"] == "uh"]
-    with_uh_cross = uh_df.loc[lambda x: x["WITH_OR_OMIT_FILLER"] == 1][
-        "NOW_CROSS"
-    ].mean()
-    omit_uh_cross = uh_df.loc[lambda x: x["WITH_OR_OMIT_FILLER"] == 0][
-        "NOW_CROSS"
-    ].mean()
-    print("UH")
-    print("UH: ", with_uh_cross)
-    print("omit: ", omit_uh_cross)
-
-    um_df = df.loc[lambda x: x["UH_OR_UM"] == "um"]
-    with_um_cross = um_df.loc[lambda x: x["WITH_OR_OMIT_FILLER"] == 1][
-        "NOW_CROSS"
-    ].mean()
-    omit_um_cross = um_df.loc[lambda x: x["WITH_OR_OMIT_FILLER"] == 0][
-        "NOW_CROSS"
-    ].mean()
-    print("UM")
-    print("um: ", with_um_cross)
-    print("omit: ", omit_um_cross)
-
-    df["NOW_CROSS"].hist()
+    f1, _ = plot_prosody(df, plot=False)
+    f2, _ = plot_diff(df, plot=False)
     plt.show()
 
-    diff_now, idx_now, cross_now = calc_cross_diff(fillers, col_name="NOW_CROSS")
-    diff_fut, idx_fut, cross_fut = calc_cross_diff(fillers, col_name="FUT_CROSS")
-    diff, idx, cross = diff_now, idx_now, cross_now
-
-    fig = plot_diff_hist(diff)
-    plt.show()
-
-    # run
-    # streamlit run vap_fillers/visualize_filler.py
-    # look at interesting idx in browser
-    # Where P_NOW_WITHOUT crosses before a 'short time' 1, 2 s ? and the difference is largs -> strongest fillers
-
-    # to seconds
-    # focus_cond = diff <= -100
-    focus_cond = np.logical_and(diff >= 100, diff != 500)
-    focus_cond = np.logical_and(focus_cond, cross <= 50)
-    focus_cond = np.logical_and(focus_cond, cross > 0)
-
-    ii = np.where(focus_cond)[0]
-    focus_ids = idx[ii]
-    focus_diffs = diff[ii]
-    focus_cross = cross[ii]
-    n = len(focus_ids)
-    for i, d, c in zip(focus_ids[:n], focus_diffs[:n], focus_cross[:n]):
-        print(i, f"{d} ({c})")
-        input()
+    z = 4
+    print(f"filler cross at {z}: ", (df["filler_now_cross"] == z).sum())
+    print(f"omit cross at {z}: ", (df["omit_now_cross"] == z).sum())
