@@ -465,7 +465,6 @@ def extract_filler_segment(filler_id, filler_row, model, args):
 if __name__ == "__main__":
 
     args = get_args()
-    args.output = "results/fillers_debug"
     args.model_path, args.fig_path = create_paths(args)
     print("-" * 50)
     print("PATHS")
