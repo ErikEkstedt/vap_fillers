@@ -129,38 +129,45 @@ def dialog_act_utterances():
         write_json(utterances, filename)
 
 
-def add_dialog_act_info_to_fillers():
-    def find_filler_pos_rel_da(filler_start, utterances):
-        loc = None
-        words_in_da = None
-        da = None
-        done = False
-        for utt in utterances:
-            # is filler in this utt?
-            if utt["start"] <= filler_start <= utt["end"]:
-                n = len(utt["starts"])
-                for idx in range(n):
-                    if (
-                        utt["starts"][idx] <= filler_start <= utt["ends"][idx]
-                        or utt["starts"][idx] <= filler_end <= utt["ends"][idx]
-                    ):
-                        # found filler. Where is it in utterance?
-                        loc = idx
-                        words_in_da = n
-                        da = utt["da"]
-            if done:
-                break
-        return loc, words_in_da, da
+def find_filler_pos_rel_da(session, speaker, filler_start, filler_end):
+    if isinstance(speaker, int):
+        speaker = "A" if speaker == 0 else "B"
+    utterances = read_json(join(SWDA_U_PATH, f"sw{session}{speaker}-word-da.json"))
+    loc = None
+    words_in_da = None
+    da = None
+    done = False
+    for utt in utterances:
+        # is filler in this utt?
+        if utt["start"] <= filler_start <= utt["end"]:
+            n = len(utt["starts"])
+            for idx in range(n):
+                if (
+                    utt["starts"][idx] <= filler_start <= utt["ends"][idx]
+                    or utt["starts"][idx] <= filler_end <= utt["ends"][idx]
+                ):
+                    # found filler. Where is it in utterance?
+                    loc = idx
+                    words_in_da = n
+                    da = utt["da"]
+        if done:
+            break
+    return loc, words_in_da, da
 
+
+def add_dialog_act_info_to_fillers():
     fillers = read_txt(TEST_FILLER_PATH)
     fillers_with_dal = []
     for filler in tqdm(fillers):
         session, start, end, speaker, uh_or_um = filler.split()
+
         filler_start = float(start)
         filler_end = float(end)
         utterances = read_json(join(SWDA_U_PATH, f"sw{session}{speaker}-word-da.json"))
         speaker = 0 if speaker == "A" else 1
+
         da, loc, words_in_da = find_filler_pos_rel_da(filler_start, utterances)
+
         row = f"{session},{start},{end},{speaker},{uh_or_um},{da},{loc},{words_in_da}"
         if loc is None:
             print("Broken: ")
