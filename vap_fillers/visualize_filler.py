@@ -42,15 +42,17 @@ if __name__ == "__main__":
 
     with col1:
         direction = st.radio(
-            "Direction of difference. Positive -> faster shift without filler.",
+            "Direction of difference. Positive -> faster shift without filler. (We want positives)",
             options=["pos", "neg", "zero", "no_cross"],
             horizontal=True,
         )
         relative = st.radio(
-            "Relative from start of silence.", [True, False], horizontal=True
+            "Relative from start of silence. `False` accounts for filler duration i.e. does No-filler make faster shift in absolute terms",
+            [True, False],
+            horizontal=True,
         )
         smooth = st.radio(
-            "Smooth: apply moving average using `N` frames.",
+            "Smooth: apply moving average using `N` frames over the prediction probabilities.",
             [0, 5, 10, 15, 20],
             horizontal=True,
         )
@@ -90,3 +92,5 @@ if __name__ == "__main__":
         smooth=smooth,
     )
     st.pyplot(fig)
+    st.subheader("Red line: start of FILLER")
+    st.subheader("Red Dashed line: end of FILLER")
