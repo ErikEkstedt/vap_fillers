@@ -155,10 +155,14 @@ def combine_fillers():
     return fillers
 
 
+# Extract longer segments
+# cutout filler
 def extract_prosody(y, session, speaker, sample_rate=16_000, hop_time=0.01):
     speaker = "A" if speaker == 0 else "B"
 
-    p = pitch_praat(y, hop_time=hop_time, sample_rate=sample_rate)
+    p = pitch_praat(
+        y, hop_time=hop_time, sample_rate=sample_rate, f0_min=60, f0_max=300
+    )
     pm = SESSION_F0[session][speaker]["mean"]
     ps = SESSION_F0[session][speaker]["std"]
     p = (p - pm) / ps
@@ -473,6 +477,11 @@ if __name__ == "__main__":
     print("model: ", args.model_path)
     print("figure: ", args.fig_path)
     print("-" * 50)
+
+    # Filler position in "turn" ipu
+    # Prosody fix
+    # check outliers -> overlapping speech or weird word-timings
+    # local utterance level prosody
 
     fillers = read_txt(args.fillers)
     model = load_model(args.checkpoint)

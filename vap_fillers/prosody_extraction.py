@@ -55,7 +55,7 @@ def _create_test_filler_split():
     write_txt(um_test_fillers, UM_PATH)
 
 
-def _extract_pitch(savepath="data/pitch_information_test.json"):
+def _extract_global_speaker_session_pitch(savepath="data/pitch_information_test.json"):
     session_to_rel_path = read_json(REL_PATH)
     test_sessions = read_txt(TEST_FILE_PATH)
     dset = load_spoken_dialog_audio_dataset(
@@ -151,7 +151,6 @@ def extract_fillers_pitch(savepath=None):
 
 
 def prosody_extraction():
-
     min_prosody_time = 0.11  # seconds to cleanly extract pitch/intensity
 
     min_p_samples = round(SAMPLE_RATE * min_prosody_time)

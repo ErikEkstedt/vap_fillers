@@ -342,7 +342,7 @@ def plot_filler(
     return fig
 
 
-def plot_loop(df):
+def plot_loop(df, model):
     for ii in range(len(df)):
         filler = df.iloc[ii]
         x, rel_filler_start = load_filler(filler)
@@ -365,16 +365,17 @@ if __name__ == "__main__":
 
     # f1, _ = plot_prosody(df, plot=False)
     # f2, _ = plot_diff(df, plot=False)
-    f3, _ = plot_diff_location_box(df, plot=True)
+    # f3, _ = plot_diff_location_box(df, plot=True)
     # plt.show()
 
     df = load_fillers()
-    model = load_model()
 
     fig, data = extract_and_plot_diff_bars(df, min_dur=0)
+    plt.show()
 
     pf = find_difference(df, direction="pos", relative=True)
     nf = find_difference(df, direction="neg", relative=False)
     zf = find_difference(df, direction="zero", relative=True)
 
-    plot_loop(pf)
+    model = load_model()
+    plot_loop(pf, model)
