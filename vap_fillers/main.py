@@ -85,15 +85,6 @@ def plot_diff(df, min_frame_cross=0, max_frame_cross=498, n_bins=50, plot=True):
     return fig, ax
 
 
-def load_fillers(path="results/filler_info/filler_info.csv"):
-    df = pd.read_csv(path)
-    df["diff"] = df.loc[:, "filler_now_cross"] - df.loc[:, "omit_now_cross"]
-    df["duration"] = df.loc[:, "end"] - df.loc[:, "start"]
-    # for c in list(df.columns):
-    #     print(c)
-    return df
-
-
 def plot_diff_location_box(df, beg_lim=0.33, end_lim=0.66, plot=True):
     y = df["diff"]
     x = df["da_loc"] / df["da_n_words"]
@@ -240,6 +231,15 @@ def extract_and_plot_diff_bars(df, min_dur=0, plot=True):
     return fig, data
 
 
+def load_fillers(path="results/filler_info/filler_info.csv"):
+    df = pd.read_csv(path)
+    df["diff"] = df.loc[:, "filler_now_cross"] - df.loc[:, "omit_now_cross"]
+    df["duration"] = df.loc[:, "end"] - df.loc[:, "start"]
+    # for c in list(df.columns):
+    #     print(c)
+    return df
+
+
 def load_filler(filler, context=20, silence=10, sample_rate=16_000):
     audio_start = filler["start"] - context
 
@@ -286,6 +286,7 @@ def plot_filler(
     out,
     speaker,
     rel_filler_start=None,
+    filler_dur=None,
     title="",
     sample_rate=16_000,
     frame_hz=50,
@@ -315,7 +316,6 @@ def plot_filler(
         x,
         y[1],
         ax=ax[3],
-        colors=["r", "g"],
         label="P-now OMIT",
     )
     ax[2].set_yticks([-0.25, 0.25])
@@ -329,6 +329,10 @@ def plot_filler(
         ax[2].axvline(rel_filler_start, color="r")
         ax[3].axvline(rel_filler_start, color="r")
 
+        if filler_dur is not None:
+            ax[2].axvline(rel_filler_start + filler_dur, color="r", linestyle="dashed")
+            ax[3].axvline(rel_filler_start + filler_dur, color="r", linestyle="dashed")
+
     for a in ax[2:]:
         a.legend(loc="upper right")
 
@@ -338,26 +342,23 @@ def plot_filler(
     return fig
 
 
-def moving_average(x, k=10):
-    shape_back = False
-    if x.ndim == 2:
-        x = x.unsqueeze(1)
-        shape_back = True
-    with torch.no_grad():
-        m = torch.nn.Conv1d(
-            in_channels=1,
-            out_channels=1,
-            kernel_size=k,
-            bias=False,
-            # padding_mode="replicate",
+def plot_loop(df):
+    for ii in range(len(df)):
+        filler = df.iloc[ii]
+        x, rel_filler_start = load_filler(filler)
+        out = model.probs(x.to(model.device))
+        fig = plot_filler(
+            x,
+            out,
+            speaker=filler["speaker"],
+            rel_filler_start=rel_filler_start,
+            smooth=0,
         )
-        m.weight.data.fill_(1.0 / k)
-        xx = torch.nn.functional.pad(x.cpu(), pad=(k - 1, 0), mode="replicate")
-        y = m(xx)
-
-    if shape_back:
-        y = y.squeeze(1)
-    return y
+        try:
+            plt.show()
+        except KeyboardInterrupt:
+            plt.close("all")
+            break
 
 
 if __name__ == "__main__":
@@ -374,39 +375,6 @@ if __name__ == "__main__":
 
     pf = find_difference(df, direction="pos", relative=True)
     nf = find_difference(df, direction="neg", relative=False)
+    zf = find_difference(df, direction="zero", relative=True)
 
-    for ii in range(len(pf)):
-        filler = pf.iloc[ii]
-        print("SPEAKER: ", filler["speaker"])
-        x, rel_filler_start = load_filler(filler)
-        out = model.probs(x.to(model.device))
-        fig = plot_filler(
-            x,
-            out,
-            speaker=filler["speaker"],
-            rel_filler_start=rel_filler_start,
-            smooth=0,
-        )
-        plt.show()
-
-    for ii in range(len(nf)):
-        filler = nf.iloc[ii]
-        x, rel_filler_start = load_filler(filler)
-        out = model.probs(x.to(model.device))
-        fig = plot_filler(
-            x,
-            out,
-            speaker=filler["speaker"],
-            rel_filler_start=rel_filler_start,
-            smooth=10,
-        )
-        plt.show()
-
-    for ii in range(len(nf)):
-        filler = nf.iloc[ii]
-        x, rel_filler_start = load_filler(filler)
-        out = model.probs(x.to(model.device))
-        fig = plot_filler(
-            x, out, speaker=filler["speaker"], rel_filler_start=rel_filler_start
-        )
-        plt.show()
+    plot_loop(pf)

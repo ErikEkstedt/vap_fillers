@@ -1,35 +1,92 @@
-from os.path import basename, join
-
 import streamlit as st
 
-from glob import glob
+from vap_fillers.utils import load_model
+from vap_fillers.main import (
+    load_fillers,
+    load_filler,
+    find_difference,
+    find_no_cross,
+    plot_filler,
+    extract_and_plot_diff_bars,
+)
 
 
-ROOT = "results/fillers"
-FIG_ROOT = join(ROOT, "figures")
-
-figure_paths = glob(join(FIG_ROOT, "*.png"))
-figure_paths.sort()
-figs = {basename(path).split("-")[1]: path for path in figure_paths}
-
-sorted_idx = [int(s) for s in list(figs.keys())]
-sorted_idx.sort()
-# sorted_idx = [str(s).zfill(4) for s in sorted_idx]
+FILE = "results/filler_info/filler_info.csv"
+df = load_fillers(FILE)
 
 
 if __name__ == "__main__":
-    st.title(f"{ROOT}")
+    if "model" not in st.session_state:
+        st.session_state.model = load_model()
 
-    value = st.number_input("filler index", 0, sorted_idx[-1], value=0)
-    omit_path = figs[str(value).zfill(4)]
-    filler_path = omit_path.replace("_omit.png", ".png")
+    if "fillers" not in st.session_state:
+        st.session_state.fillers = load_fillers(FILE)
+        st.session_state.no_cross = find_no_cross(df)
+        st.session_state.global_fig, _ = extract_and_plot_diff_bars(df, plot=False)
 
-    st.image(filler_path)
-    st.image(omit_path)
+        st.session_state.positive = find_difference(df, direction="pos")
+        st.session_state.negative = find_difference(df, direction="neg")
+        st.session_state.zero = find_difference(df, direction="zero")
 
-    # st.header("BAD")
-    # value = st.number_input("filler index", 0, sorted_idx[-1], value=0)
-    # omit_path = figs[str(value).zfill(4)]
-    # filler_path = omit_path.replace("_omit.png", ".png")
-    # st.image(filler_path)
-    # st.image(omit_path)
+        st.session_state.abs_positive = find_difference(
+            df, direction="pos", relative=False
+        )
+        st.session_state.abs_negative = find_difference(
+            df, direction="neg", relative=False
+        )
+        st.session_state.abs_zero = find_difference(
+            df, direction="zero", relative=False
+        )
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        direction = st.radio(
+            "Direction of difference. Positive -> faster shift without filler.",
+            options=["pos", "neg", "zero", "no_cross"],
+            horizontal=True,
+        )
+        relative = st.radio(
+            "Relative from start of silence.", [True, False], horizontal=True
+        )
+        smooth = st.radio(
+            "Smooth: apply moving average using `N` frames.",
+            [0, 5, 10, 15, 20],
+            horizontal=True,
+        )
+    with col2:
+        st.pyplot(st.session_state.global_fig)
+
+    if direction == "pos":
+        if relative:
+            current = st.session_state.positive
+        else:
+            current = st.session_state.abs_positive
+    elif direction == "neg":
+        if relative:
+            current = st.session_state.negative
+        else:
+            current = st.session_state.abs_negative
+    elif direction == "zero":
+        if relative:
+            current = st.session_state.zero
+        else:
+            current = st.session_state.abs_zero
+    else:
+        current = st.session_state.no_cross
+
+    index = st.number_input(f"Index ({len(current)})", 0, len(current))
+    st.title(f"{direction.upper()} (smooth: {smooth})")
+
+    filler = current.iloc[index]
+    x, rel_filler_start = load_filler(filler)
+    out = st.session_state.model.probs(x.to(st.session_state.model.device))
+    fig = plot_filler(
+        x,
+        out,
+        speaker=filler["speaker"],
+        rel_filler_start=rel_filler_start,
+        filler_dur=filler["duration"],
+        smooth=smooth,
+    )
+    st.pyplot(fig)
