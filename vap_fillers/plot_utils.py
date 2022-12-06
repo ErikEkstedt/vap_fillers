@@ -4,12 +4,14 @@ import matplotlib.pyplot as plt
 from vap.audio import log_mel_spectrogram
 
 
-def plot_speaker_probs(x, p, ax, label="P", alpha=0.6):
+def plot_speaker_probs(x, p, ax, label="P", alpha=0.6, colors=["b", "orange"]):
     px = p - 0.5
     z = torch.zeros_like(p)
-    ax.fill_between(x, px, z, where=px > 0, color="b", label=f"A {label}", alpha=alpha)
     ax.fill_between(
-        x, px, z, where=px < 0, color="orange", label=f"B {label}", alpha=alpha
+        x, px, z, where=px > 0, color=colors[0], label=f"A {label}", alpha=alpha
+    )
+    ax.fill_between(
+        x, px, z, where=px < 0, color=colors[1], label=f"B {label}", alpha=alpha
     )
     ax.set_ylim([-0.5, 0.5])
     return ax
