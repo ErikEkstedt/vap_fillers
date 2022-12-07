@@ -1,6 +1,7 @@
 from argparse import ArgumentParser
 from glob import glob
-from os.path import basename, exists, join
+from os.path import basename, dirname, exists, join
+from os import makedirs
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -17,7 +18,7 @@ from vap.utils import read_json
 SAMPLE_RATE = 16_000
 
 ANNO_PATH = "../../data/switchboard/annotations/swb_ms98_transcriptions"
-AUDIO_ROOT = join("../../data/switchboard/audio")
+AUDIO_ROOT = "../../data/switchboard/audio"
 REL_PATH = "data/relative_audio_path.json"
 
 
@@ -141,6 +142,14 @@ class Prosody:
         Iterate over all files in the switchboard corpus and extract prosody
         (f0, intensity) statistics for each speaker in each session.
         """
+        if not exists(ANNO_PATH):
+            print("Annotations not found!")
+            print(
+                "Make sure you have `swb_ms98_transcriptions` downloaded and extracted"
+            )
+            print(ANNO_PATH)
+            return
+
         all_sessions = glob(join(ANNO_PATH, "**/*A-ms98-a-trans.text"), recursive=True)
         all_sessions = [
             basename(s)
@@ -153,35 +162,36 @@ class Prosody:
         prosody = []
         pbar = tqdm(range(len(all_sessions)))
 
-        try:
-            for split in ["train", "val", "test"]:
-                pbar.desc = f"{split.upper()}"
+        # try:
+        for split in ["train", "val", "test"]:
+            pbar.desc = f"{split.upper()}"
 
-                # Using `datasets_turntaking` to get easy access to switchboard files
-                # However they are spread out over 'train', 'val' and 'test' splits
-                dset = load_spoken_dialog_audio_dataset(["switchboard"], split=split)
-                session_indices = np.array(dset["session"])
-                for session in all_sessions:
+            # Using `datasets_turntaking` to get easy access to switchboard files
+            # However they are spread out over 'train', 'val' and 'test' splits
+            dset = load_spoken_dialog_audio_dataset(["switchboard"], split=split)
+            session_indices = np.array(dset["session"])
+            for session in all_sessions:
 
-                    if session not in session_indices:
-                        continue
+                if session not in session_indices:
+                    continue
 
-                    if session in prosody:
-                        continue
+                if session in prosody:
+                    continue
 
-                    # Get data sample
-                    idx = np.where(session_indices == session)[0].item()
-                    d = dset[idx]
+                # Get data sample
+                idx = np.where(session_indices == session)[0].item()
+                d = dset[idx]
 
-                    # extract prosody
-                    tmp_prosody = self.extract_prosody_from_session(d, session)
-                    prosody.append(tmp_prosody)
-                    pbar.update()
-        except KeyboardInterrupt:
-            print("Keyboard interrupt saving what's processed -> tmp_prosody.csv")
-            df = pd.DataFrame(prosody)
-            df.to_csv("tmp_prosody.csv", index=False)
-            return df
+                # extract prosody
+                tmp_prosody = self.extract_prosody_from_session(d, session)
+                prosody.append(tmp_prosody)
+                pbar.update()
+        # except KeyboardInterrupt:
+        #     print("Keyboard interrupt saving what's processed -> tmp_prosody.csv")
+        #     df = pd.DataFrame(prosody)
+        #     df.to_csv("tmp_prosody.csv", index=False)
+        #     return df
+        makedirs(dirname(savepath), exist_ok=True)
         df = pd.DataFrame(prosody)
         df.to_csv(savepath, index=False)
         print(
@@ -224,5 +234,3 @@ if __name__ == "__main__":
 
     if args.fillers:
         df = P.extract_filler_prosody(args.filler_path, args.global_prosody_path)
-
-    df = pd.read_csv("tmp_prosody.csv")
