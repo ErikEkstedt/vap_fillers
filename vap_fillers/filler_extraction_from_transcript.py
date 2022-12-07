@@ -10,43 +10,6 @@ When extracting fillers we also need to know about the local context
       better pitch/intensity estimation 
 
 -----------------------------------------------------------------------------
-
-USER:
------
-hello there, I am investigating the role of 'fillers' in spoken dialog. Could
-you give me a brief overview of what they are and some interesting ideas to
-investigating regarding their role in speech?
-
-ChatGPT:
---------
-Hello! Fillers are words or sounds that are used to fill gaps in speech, such
-as "um" or "uh." They can serve a variety of purposes, such as signaling to the
-listener that the speaker is still thinking or organizing their thoughts, or as
-a way of checking in with the listener to make sure they are still paying
-attention. Investigating the role of fillers in spoken dialog could involve
-looking at factors such as how often they are used, in what contexts they are
-used, and how they are perceived by listeners. It could also involve looking at
-whether there are any differences in the use of fillers between different
-speakers or in different speaking situations. Overall, there are many
-interesting directions that research on fillers in spoken dialog could take,
-and I'm sure you'll be able to come up with some interesting ideas for your
-investigation!
-
-
-USER:
------
-thanks, do you know if there  is a difference between 'uh' and 'um'?
-
-ChatGPT:
---------
-Yes, there is a difference between "uh" and "um." In general, "uh" is used to
-signal a pause in speech to indicate that the speaker is unsure or uncertain
-about what they are about to say. "Um," on the other hand, is used to signal a
-pause in speech to indicate that the speaker is thinking or organizing their
-thoughts. Some studies have also suggested that "uh" is used more often by men,
-while "um" is used more often by women, although this is not always the case.
-Overall, the specific meaning and use of "uh" and "um" can vary depending on
-the speaker and the context in which they are used.
 """
 
 
@@ -61,27 +24,6 @@ F0_PATH = "data/pitch_information_test.csv"
 INTENSITY_PATH = "data/intensity_information_test.csv"
 ANNO_PATH = "../../data/switchboard/annotations/swb_ms98_transcriptions"
 FILLER = ["uh", "um"]
-
-
-# Only used once
-def _json_to_dataframe_csv(path=F0_PATH):
-    f0_global = read_json(path.replace(".csv", ".json"))
-    df = pd.DataFrame(f0_global)
-    ddf = []
-    for k, v in f0_global.items():
-        ddf.append(
-            {
-                "session": k,
-                "a_mean": v["A"]["mean"],
-                "a_std": v["A"]["std"],
-                "b_mean": v["B"]["mean"],
-                "b_std": v["B"]["std"],
-            }
-        )
-    df = pd.DataFrame(ddf)
-    df.to_csv(path, index=False)
-    print("Saved -> ", path)
-    return df
 
 
 def words_to_vad_list(words, min_diff=0.05):
