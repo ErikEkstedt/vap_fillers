@@ -15,7 +15,7 @@ def get_args():
         "-fp",
         "--filler_path",
         type=str,
-        default="data/FILLER/all_fillers_test_prosody.csv",
+        default="results/all_fillers_test_prosody.csv",
     )
     parser.add_argument(
         "-c",
