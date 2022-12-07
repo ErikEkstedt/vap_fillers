@@ -16,6 +16,51 @@ AUDIO_ROOT = join(expanduser("~"), "projects/data/switchboard/audio")
 REL_PATHS = read_json(REL_PATH)
 
 
+def load_fillers(path="results/all_fillers_test_prosody_model.csv"):
+    df = pd.read_csv(path)
+    df["diff"] = df.loc[:, "filler_now_cross"] - df.loc[:, "omit_now_cross"]
+    df["duration"] = df.loc[:, "end"] - df.loc[:, "start"]
+
+    df["filler_f0_z"] = (df["filler_f0_m"] - df["speaker_f0_m"]) / df["speaker_f0_s"]
+    df["filler_intensity_z"] = (
+        df["filler_intensity_m"] - df["speaker_intensity_m"]
+    ) / df["speaker_intensity_s"]
+    return df
+
+
+def load_filler(filler, context=20, silence=10, sample_rate=16_000):
+    audio_start = filler["start"] - context
+
+    if audio_start < 0:
+        audio_start = 0
+        context = filler["start"]
+
+    audio_end = filler["end"]
+
+    audio_path = join(AUDIO_ROOT, REL_PATHS[str(filler["session"])] + ".wav")
+    waveform, _ = load_waveform(
+        audio_path,
+        start_time=audio_start,
+        end_time=audio_end,
+        sample_rate=sample_rate,
+    )
+    waveform = waveform.unsqueeze(0)  # add batch dim
+
+    w_filler = pad_silence(waveform, silence=silence, sample_rate=sample_rate)
+
+    # Remove filler
+    fill_n_samples = int(filler["duration"] * sample_rate)
+    w_omit = waveform[..., :-fill_n_samples]
+
+    diff_samples = w_filler.shape[-1] - w_omit.shape[-1]
+
+    # Add silences
+    w_omit = pad_silence(w_omit, sil_samples=diff_samples)
+
+    # Batch
+    return torch.cat([w_filler, w_omit]), context
+
+
 def plot_prosody(df, xmin=-6, xmax=3, n_bins=50, min_duration=0.11, plot=True):
     fig, ax = plt.subplots(2, 2, figsize=(12, 8))
     um_f0 = (
@@ -197,7 +242,6 @@ def extract_and_plot_diff_bars(df, min_dur=0, plot=True):
     else:
         d = df
     data = {"tot": len(d)}
-    relative = False
     for rel in [True, False]:
         name = "relative" if rel else "absolute"
         data[name] = {}
@@ -229,48 +273,6 @@ def extract_and_plot_diff_bars(df, min_dur=0, plot=True):
     if plot:
         plt.pause(0.1)
     return fig, data
-
-
-def load_fillers(path="results/filler_info/filler_info.csv"):
-    df = pd.read_csv(path)
-    df["diff"] = df.loc[:, "filler_now_cross"] - df.loc[:, "omit_now_cross"]
-    df["duration"] = df.loc[:, "end"] - df.loc[:, "start"]
-    # for c in list(df.columns):
-    #     print(c)
-    return df
-
-
-def load_filler(filler, context=20, silence=10, sample_rate=16_000):
-    audio_start = filler["start"] - context
-
-    if audio_start < 0:
-        audio_start = 0
-        context = filler["start"]
-
-    audio_end = filler["end"]
-
-    audio_path = join(AUDIO_ROOT, REL_PATHS[str(filler["session"])] + ".wav")
-    waveform, _ = load_waveform(
-        audio_path,
-        start_time=audio_start,
-        end_time=audio_end,
-        sample_rate=sample_rate,
-    )
-    waveform = waveform.unsqueeze(0)  # add batch dim
-
-    w_filler = pad_silence(waveform, silence=silence, sample_rate=sample_rate)
-
-    # Remove filler
-    fill_n_samples = int(filler["duration"] * sample_rate)
-    w_omit = waveform[..., :-fill_n_samples]
-
-    diff_samples = w_filler.shape[-1] - w_omit.shape[-1]
-
-    # Add silences
-    w_omit = pad_silence(w_omit, sil_samples=diff_samples)
-
-    # Batch
-    return torch.cat([w_filler, w_omit]), context
 
 
 def plot_vad(vad, ax, frame_hz=50):
@@ -347,10 +349,11 @@ def plot_loop(df, model):
         filler = df.iloc[ii]
         x, rel_filler_start = load_filler(filler)
         out = model.probs(x.to(model.device))
+        speaker_idx = 0 if filler.speaker == "A" else 1
         fig = plot_filler(
             x,
             out,
-            speaker=filler["speaker"],
+            speaker=speaker_idx,
             rel_filler_start=rel_filler_start,
             smooth=0,
         )
@@ -363,19 +366,12 @@ def plot_loop(df, model):
 
 if __name__ == "__main__":
 
-    # f1, _ = plot_prosody(df, plot=False)
-    # f2, _ = plot_diff(df, plot=False)
-    # f3, _ = plot_diff_location_box(df, plot=True)
-    # plt.show()
-
     df = load_fillers()
 
     fig, data = extract_and_plot_diff_bars(df, min_dur=0)
     plt.show()
 
     pf = find_difference(df, direction="pos", relative=True)
-    nf = find_difference(df, direction="neg", relative=False)
-    zf = find_difference(df, direction="zero", relative=True)
 
     model = load_model()
     plot_loop(pf, model)

@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 import streamlit as st
 
 from vap_fillers.utils import load_model
@@ -11,8 +12,13 @@ from vap_fillers.main import (
 )
 
 
-FILE = "results/filler_info/filler_info.csv"
-df = load_fillers(FILE)
+parser = ArgumentParser()
+parser.add_argument(
+    "--results", type=str, default="results/all_fillers_test_prosody_model.csv"
+)
+args = parser.parse_args()
+
+df = load_fillers(args.results)
 
 
 if __name__ == "__main__":
@@ -20,7 +26,7 @@ if __name__ == "__main__":
         st.session_state.model = load_model()
 
     if "fillers" not in st.session_state:
-        st.session_state.fillers = load_fillers(FILE)
+        st.session_state.fillers = df
         st.session_state.no_cross = find_no_cross(df)
         st.session_state.global_fig, _ = extract_and_plot_diff_bars(df, plot=False)
 
@@ -86,7 +92,7 @@ if __name__ == "__main__":
     fig = plot_filler(
         x,
         out,
-        speaker=filler["speaker"],
+        speaker=0 if filler.speaker == "A" else 1,
         rel_filler_start=rel_filler_start,
         filler_dur=filler["duration"],
         smooth=smooth,
