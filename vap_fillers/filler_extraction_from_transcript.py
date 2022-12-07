@@ -21,31 +21,27 @@ import pandas as pd
 from vap.utils import read_txt, write_json
 
 ANNO_PATH = "../../data/switchboard/annotations/swb_ms98_transcriptions"
+TRAIN = "data/splits/train.txt"
+VAL = "data/splits/val.txt"
+TEST = "data/splits/test.txt"
 FILLER = ["uh", "um"]
-
-
-def words_to_vad_list(words, min_diff=0.05):
-    vad_list = []
-    current_segment = [words[0]["start"], words[0]["end"]]
-    for winfo in words[1:]:
-        if winfo["start"] - current_segment[-1] <= min_diff:
-            current_segment[-1] = winfo["end"]
-        else:
-            vad_list.append(current_segment)
-            current_segment = [winfo["start"], winfo["end"]]
-    vad_list.append(current_segment)
-    return vad_list
 
 
 class FillerExtractor:
     def __init__(
         self,
         root,
+        train_files=TRAIN,
+        val_files=VAL,
+        test_files=TEST,
         anno_path=ANNO_PATH,
         min_pause_after_filler=0.2,
         min_duration_to_other=1.0,
     ):
         self.root = root
+        self.train_files = train_files
+        self.val_files = val_files
+        self.test_files = test_files
         self.anno_path = anno_path
         self.min_pause_after_filler = min_pause_after_filler
         self.min_duration_to_other = min_duration_to_other
@@ -236,57 +232,54 @@ class FillerExtractor:
         return pd.DataFrame(filler_data)
 
     def extract(self):
-
         df = self.filler_extraction(
             self.min_pause_after_filler, self.min_duration_to_other
         )
-        savepath = join(self.root, "all_fillers.csv")
-        df.to_csv(savepath, index=False)
         print(f"Total fillers: {len(df)}")
         print(f"Omitted {F.total_is_too_close} entries too close to other speaker")
-        print("Saved -> ", savepath)
-        return df, savepath
+
+        savepath = join(self.root, "all_fillers.csv")
+        df.to_csv(savepath, index=False)
+        print("Saved ALL -> ", savepath)
+
+        # I don't know why I need to this...
+        # probably wrong types str/int session crap...
+        df = pd.read_csv(savepath)
+
+        test = [int(f) for f in read_txt(self.test_files)]
+        train = [int(f) for f in read_txt(self.train_files)]
+        val = [int(f) for f in read_txt(self.val_files)]
+
+        train_df = df[df["session"].isin(train)]
+        val_df = df[df["session"].isin(val)]
+        test_df = df[df["session"].isin(test)]
+
+        print(f"Train {len(train_df)}")
+        print(f"Val {len(val_df)}")
+        print(f"Test {len(test_df)}")
+        print("Sum: ", len(test_df) + len(val_df) + len(train_df))
+
+        # Save files
+        train_path = savepath.replace(".csv", "_train.csv")
+        val_path = savepath.replace(".csv", "_val.csv")
+        test_path = savepath.replace(".csv", "_test.csv")
+
+        train_df.to_csv(train_path, index=False)
+        val_df.to_csv(val_path, index=False)
+        test_df.to_csv(test_path, index=False)
+        print("Saved TRAIN -> ", savepath)
+        print("Saved VAL -> ", savepath)
+        print("Saved TEST -> ", savepath)
 
 
 if __name__ == "__main__":
-
     from argparse import ArgumentParser
 
     parser = ArgumentParser()
-    parser.add_argument("--root", default="data/FILLER")
-    parser.add_argument("--train_files", default="data/FILLER/splits/train.txt")
-    parser.add_argument("--val_files", default="data/FILLER/splits/val.txt")
-    parser.add_argument("--test_files", default="data/FILLER/splits/test.txt")
+    parser.add_argument("--root", default="results")
     args = parser.parse_args()
     for k, v in vars(args).items():
         print(f"{k}: {v}")
 
     F = FillerExtractor(args.root)
-    df, savepath = F.extract()
-
-    # Is this not working in the script????
-    # split
-    # savepath = "data/FILLER/all_fillers.csv"
-    savepath = join(args.root, "all_fillers.csv")
-    # df = pd.read_csv(savepath)
-    # print(len(df))
-
-    test = [int(f) for f in read_txt(args.test_files)]
-    train = [int(f) for f in read_txt(args.train_files)]
-    val = [int(f) for f in read_txt(args.val_files)]
-    print("train_files: ", len(train))
-    print("val_files: ", len(val))
-    print("test_files: ", len(test))
-
-    train_df = df[df["session"].isin(train)]
-    val_df = df[df["session"].isin(val)]
-    test_df = df[df["session"].isin(test)]
-
-    train_df.to_csv(savepath.replace(".csv", "_train.csv"), index=False)
-    val_df.to_csv(savepath.replace(".csv", "_val.csv"), index=False)
-    test_df.to_csv(savepath.replace(".csv", "_test.csv"), index=False)
-    print(f"Train Saved {len(train_df)}")
-    print(f"Val Saved {len(val_df)}")
-    print(f"Test Saved {len(test_df)}")
-    print("Sum: ", len(test_df) + len(val_df) + len(train_df))
-    print("Total: ", len(df))
+    F.extract()

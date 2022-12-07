@@ -331,11 +331,9 @@ class Prosody:
 if __name__ == "__main__":
 
     parser = ArgumentParser()
+    parser.add_argument("-fp", "--filler_path", default="results/all_fillers_test.csv")
     parser.add_argument(
-        "-fp", "--filler_path", default="data/FILLER/all_fillers_test.csv"
-    )
-    parser.add_argument(
-        "-gp", "--global_prosody_path", default="data/FILLER/swb_prosody.csv"
+        "-gp", "--global_prosody_path", default="results/swb_prosody.csv"
     )
     parser.add_argument("--aggregate", action="store_true")
     parser.add_argument("--filler", action="store_true")
@@ -349,7 +347,9 @@ if __name__ == "__main__":
 
     P = Prosody()
     if args.aggregate:
+        # Extract and save global prosody
         prosody_df = P.extract_swb_global_prosody(args.global_prosody_path)
 
     if args.filler:
+        # Extract and save filler prosody
         df = P.extract_filler_prosody(args.filler_path, args.global_prosody_path)
