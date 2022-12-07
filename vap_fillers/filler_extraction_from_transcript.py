@@ -14,14 +14,12 @@ When extracting fillers we also need to know about the local context
 
 
 from os.path import basename, join
+from os import makedirs
 from glob import glob
 from tqdm import tqdm
 import pandas as pd
+from vap.utils import read_txt, write_json
 
-from vap.utils import read_json, read_txt
-
-F0_PATH = "data/pitch_information_test.csv"
-INTENSITY_PATH = "data/intensity_information_test.csv"
 ANNO_PATH = "../../data/switchboard/annotations/swb_ms98_transcriptions"
 FILLER = ["uh", "um"]
 
@@ -39,102 +37,19 @@ def words_to_vad_list(words, min_diff=0.05):
     return vad_list
 
 
-def _extract_global_speaker_session_pitch(savepath="data/all_fillers_f0.csv"):
-    from datasets_turntaking.dialog_audio_dataset import (
-        load_spoken_dialog_audio_dataset,
-    )
-    import numpy as np
-    import torch
-    from vap.audio import load_waveform
-    from vap.functional import pitch_praat
-
-    REL_PATH = "data/relative_audio_path.json"
-    TEST_FILE_PATH = "data/test.txt"
-    AUDIO_ROOT = join("../../data/switchboard/audio")
-    SAMPLE_RATE = 16_000
-
-    def extract_pitch_from_session(session, min_chunk_time=0.1):
-        min_samples = min_chunk_time * SAMPLE_RATE
-
-        idx = np.where(sess_idx == session)[0].item()
-        d = dset[idx]
-
-        audio_path = join(AUDIO_ROOT, session_to_rel_path[session] + ".wav")
-        waveform, _ = load_waveform(audio_path, sample_rate=SAMPLE_RATE)
-
-        session_pitch = {}
-        # pitch[session] = {}
-        for speaker in ["A", "B"]:
-            channel = 0 if speaker == "A" else 1
-            vad_list = torch.tensor(d["vad_list"][channel])
-
-            tmp_pitch = []
-            for start_time, end_time in vad_list:
-                start = (start_time * SAMPLE_RATE).long()
-                end = (end_time * SAMPLE_RATE).long()
-                if end - start < min_samples:
-                    continue
-                y = waveform[channel, start:end]
-                try:
-                    p = pitch_praat(y, sample_rate=SAMPLE_RATE)
-                except:
-                    print("y: ", tuple(y.shape))
-                    assert False
-                tmp_pitch.append(p[p != 0])
-            pp = torch.cat(tmp_pitch)
-            session_pitch[speaker] = {
-                "mean": pp.mean().item(),
-                "std": pp.std().item(),
-            }
-        return session_pitch
-
-    all_sessions = glob(join(ANNO_PATH, "**/*A-ms98-a-trans.text"), recursive=True)
-    all_sessions = [
-        basename(s).split("-")[0].replace("sw", "").replace("A", "").replace("B", "")
-        for s in all_sessions
-    ]
-    session_to_rel_path = read_json(REL_PATH)
-
-    pitch_data = []
-    try:
-        pbar = tqdm(range(len(all_sessions)))
-        for split in ["train", "val", "test"]:
-            pbar.desc = f"{split.upper()}"
-            dset = load_spoken_dialog_audio_dataset(
-                ["switchboard"], split=split, min_word_vad_diff=0.1
-            )
-            sess_idx = np.array(dset["session"])
-            for session in all_sessions:
-                if session not in sess_idx:
-                    continue
-                if session not in pitch_data:
-                    pitch = extract_pitch_from_session(session, min_chunk_time=0.2)
-                    pitch_data.append(
-                        {
-                            "session": session,
-                            "a_mean": pitch["A"]["mean"],
-                            "a_std": pitch["A"]["std"],
-                            "b_mean": pitch["B"]["mean"],
-                            "b_std": pitch["B"]["std"],
-                        }
-                    )
-                    pbar.update()
-    except Exception as e:
-        print(e)
-
-    df = pd.DataFrame(pitch_data)
-    df.to_csv(savepath, index=False)
-    print(f"Saved F0 global stats (n={len(df)}/{len(all_sessions)}) -> ", savepath)
-    return df
-
-
 class FillerExtractor:
     def __init__(
-        self, anno_path=ANNO_PATH, min_pause_after_filler=0.2, min_duration_to_other=1.0
+        self,
+        root,
+        anno_path=ANNO_PATH,
+        min_pause_after_filler=0.2,
+        min_duration_to_other=1.0,
     ):
+        self.root = root
         self.anno_path = anno_path
         self.min_pause_after_filler = min_pause_after_filler
         self.min_duration_to_other = min_duration_to_other
+        self.total_is_too_close = 0
 
     def read_utter_trans(self, path):
         """extract utterance annotation"""
@@ -230,6 +145,11 @@ class FillerExtractor:
                'utt_end', 'utt_n_words'],
               dtype='object')
         """
+
+        makedirs(self.root, exist_ok=True)
+        trans_path = join(self.root, "transcripts")
+        makedirs(trans_path, exist_ok=True)
+
         # min_pause_after_filler = 0.2
         # min_duration_to_other = 1
         filler_data = []
@@ -257,9 +177,11 @@ class FillerExtractor:
                 "A": self.combine_utterance_and_words(trans["A"]),
                 "B": self.combine_utterance_and_words(trans["B"]),
             }
+
             session = (
                 name.split("-")[0].replace("A", "").replace("B", "").replace("sw", "")
             )
+            write_json(info, join(trans_path, session + ".json"))
             # Find the fillers
             for speaker, other_speaker in zip(["A", "B"], ["B", "A"]):
                 words = trans[speaker]["word"]
@@ -277,6 +199,7 @@ class FillerExtractor:
                         w, words_other, min_duration_to_other=min_duration_to_other
                     )
                     if other_is_close:
+                        self.total_is_too_close += 1
                         continue
                     ##################################
                     # FILLER IS OKAY!
@@ -307,27 +230,63 @@ class FillerExtractor:
                             "utt_start": utt["start"],
                             "utt_end": utt["end"],
                             "utt_n_words": len(utt["words"]),
+                            "utt_loc": filler_rel_utter_location,
                         }
                     )
         return pd.DataFrame(filler_data)
 
     def extract(self):
-        return self.filler_extraction()
+
+        df = self.filler_extraction(
+            self.min_pause_after_filler, self.min_duration_to_other
+        )
+        savepath = join(self.root, "all_fillers.csv")
+        df.to_csv(savepath, index=False)
+        print(f"Total fillers: {len(df)}")
+        print(f"Omitted {F.total_is_too_close} entries too close to other speaker")
+        print("Saved -> ", savepath)
+        return df, savepath
 
 
 if __name__ == "__main__":
 
-    # Extract global F0 from all sessions
-    df = _extract_global_speaker_session_pitch()
+    from argparse import ArgumentParser
 
-    # change format of older global F0 etc
-    # _ = _json_to_dataframe_csv(F0_PATH)
-    # _ = _json_to_dataframe_csv(INTENSITY_PATH)
+    parser = ArgumentParser()
+    parser.add_argument("--root", default="data/FILLER")
+    parser.add_argument("--train_files", default="data/FILLER/splits/train.txt")
+    parser.add_argument("--val_files", default="data/FILLER/splits/val.txt")
+    parser.add_argument("--test_files", default="data/FILLER/splits/test.txt")
+    args = parser.parse_args()
+    for k, v in vars(args).items():
+        print(f"{k}: {v}")
 
-    # Must extract all prosody
-    f0_df = pd.read_csv(F0_PATH)
-    # intensity_df = pd.read_csv(INTENSITY_PATH)
+    F = FillerExtractor(args.root)
+    df, savepath = F.extract()
 
-    # df = FillerExtractor().extract()
-    # df.to_csv("data/all_fillers.csv", index=False)
-    fdf = pd.read_csv("data/all_fillers_f0.csv")
+    # Is this not working in the script????
+    # split
+    # savepath = "data/FILLER/all_fillers.csv"
+    savepath = join(args.root, "all_fillers.csv")
+    # df = pd.read_csv(savepath)
+    # print(len(df))
+
+    test = [int(f) for f in read_txt(args.test_files)]
+    train = [int(f) for f in read_txt(args.train_files)]
+    val = [int(f) for f in read_txt(args.val_files)]
+    print("train_files: ", len(train))
+    print("val_files: ", len(val))
+    print("test_files: ", len(test))
+
+    train_df = df[df["session"].isin(train)]
+    val_df = df[df["session"].isin(val)]
+    test_df = df[df["session"].isin(test)]
+
+    train_df.to_csv(savepath.replace(".csv", "_train.csv"), index=False)
+    val_df.to_csv(savepath.replace(".csv", "_val.csv"), index=False)
+    test_df.to_csv(savepath.replace(".csv", "_test.csv"), index=False)
+    print(f"Train Saved {len(train_df)}")
+    print(f"Val Saved {len(val_df)}")
+    print(f"Test Saved {len(test_df)}")
+    print("Sum: ", len(test_df) + len(val_df) + len(train_df))
+    print("Total: ", len(df))

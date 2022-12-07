@@ -71,6 +71,9 @@ class Prosody:
         intensity = self.praat_to_torch(intensity)[0]
         return pitch, intensity
 
+    def session_to_audio_path(self, session):
+        return join(self.audio_root, self.session_to_rel_path[str(session)] + ".wav")
+
     def extract_prosody_from_session(self, d, session):
         """
         Extract global (mean, std) from all spoken segments, of each speaker, in the session.
@@ -89,7 +92,7 @@ class Prosody:
         """
 
         # Load Audio
-        audio_path = join(self.audio_root, self.session_to_rel_path[session] + ".wav")
+        audio_path = self.session_to_audio_path(session)
         waveform, _ = load_waveform(audio_path, sample_rate=self.sample_rate)
 
         # Iterate over the voice activity from both speakers and extract prosodic features
@@ -135,6 +138,7 @@ class Prosody:
             session_prosody[
                 f"{speaker.lower()}_intensity_std"
             ] = speaker_intensity.std().item()
+
         return session_prosody
 
     def extract_swb_global_prosody(self, savepath):
@@ -200,6 +204,56 @@ class Prosody:
         )
         return df
 
+    def create_new_filler_prosody_dict(self, filler, pitch, intensity, global_prosody):
+        """
+        create a new filler-entry with all prosodic information
+        """
+        # Pad intensity/pitch to same size
+        diff = len(pitch) - len(intensity)
+        if diff > 0:
+            # this seems to match with pitch data
+            pre_pad = torch.empty(diff).fill_(intensity[0])
+            intensity = torch.cat([pre_pad, intensity])
+
+        new_filler = filler.to_dict()
+        #################################################
+        # Add utterance prosody
+        #################################################
+        new_filler["utt_f0_m"] = intensity.mean().item()
+        new_filler["utt_f0_s"] = intensity.std().item()
+        new_filler["utt_intensity_m"] = pitch[pitch != 0].mean().item()
+        new_filler["utt_intensity_s"] = pitch[pitch != 0].std().item()
+        #################################################
+        # Add filler prosody
+        #################################################
+        # Find relative start/end of filler in utterance
+        fill_rel_start = filler.start - filler.utt_start
+        fill_rel_end = filler.end - filler.utt_start
+        fill_fs = int(fill_rel_start / self.hop_time) - 1
+        fill_fe = int(fill_rel_end / self.hop_time) - 1
+        filler_f0 = pitch[fill_fs:fill_fe]
+        filler_intensity = intensity[fill_fs:fill_fe]
+        new_filler["filler_f0_m"] = filler_f0[filler_f0 != 0].mean().item()
+        new_filler["filler_f0_s"] = filler_f0[filler_f0 != 0].std().item()
+        new_filler["filler_intensity_m"] = filler_intensity.mean().item()
+        new_filler["filler_intensity_s"] = filler_intensity.std().item()
+        #################################################
+        # Add (global) speaker prosody
+        #################################################
+        new_filler["speaker_f0_m"] = global_prosody[
+            f"{filler.speaker.lower()}_f0_mean"
+        ].values.item()
+        new_filler["speaker_f0_s"] = global_prosody[
+            f"{filler.speaker.lower()}_f0_std"
+        ].values.item()
+        new_filler["speaker_intensity_m"] = global_prosody[
+            f"{filler.speaker.lower()}_intensity_mean"
+        ].values.item()
+        new_filler["speaker_intensity_s"] = global_prosody[
+            f"{filler.speaker.lower()}_intensity_std"
+        ].values.item()
+        return new_filler
+
     def extract_filler_prosody(self, filler_path, global_prosody_path):
         if not exists(filler_path):
             print("FILLER path does not exist!")
@@ -213,24 +267,89 @@ class Prosody:
             print("Please run `python vap_fillers/filler_prosody.py --aggregate`")
             return
 
+        df = pd.read_csv(filler_path)
+        pdf = pd.read_csv(global_prosody_path)
+        print("Path: ", filler_path)
+        print("N fillers: ", len(df))
+        print("path: ", global_prosody_path)
+        print("N prosody: ", len(pdf))
+
+        new_filler_df = []
+        for row_idx in tqdm(range(len(df)), desc="Extract filler prosody"):
+            filler = df.iloc[row_idx]
+            global_prosody = pdf[pdf["session"] == filler.session]
+
+            # Load audio of utterance
+            audio_path = self.session_to_audio_path(filler.session)
+            y, _ = load_waveform(
+                audio_path,
+                start_time=filler.utt_start,
+                end_time=filler.utt_end,
+                sample_rate=self.sample_rate,
+            )
+
+            # Extract prosody
+            pitch, intensity = self.extract_prosody(
+                y,
+                sample_rate=self.sample_rate,
+                hop_time=self.hop_time,
+                f0_min=self.f0_min,
+                f0_max=self.f0_max,
+            )
+
+            new_filler = self.create_new_filler_prosody_dict(
+                filler, pitch, intensity, global_prosody
+            )
+            new_filler_df.append(new_filler)
+
+            # Sanity check
+            # I'll probably need it again...
+            # import matplotlib.pyplot as plt
+            # fig, ax = plt.subplots(1, 1)
+            # ax.plot(pitch, color="g", label="F0", alpha=0.6)
+            # ax.axhline(utt_p_m, color="g", alpha=0.6)
+            # ax.axhline(utt_p_m - utt_p_s, color="g", linestyle="dashed", alpha=0.5)
+            # ax.axhline(utt_p_m + utt_p_s, color="g", linestyle="dashed", alpha=0.5)
+            # ax.plot(intensity, color="b", label="Intensity", alpha=0.6)
+            # ax.axhline(utt_i_m, color="b", alpha=0.6)
+            # ax.axhline(utt_i_m - utt_i_s, color="b", linestyle="dashed", alpha=0.5)
+            # ax.axvline(fill_fs, color="r", linestyle="dashed")
+            # ax.axvline(fill_fe, color="r", linestyle="dashed")
+            # plt.tight_layout()
+            # plt.show()
+
+        fdf = pd.DataFrame(new_filler_df)
+        savepath = filler_path.replace(".csv", "_prosody.csv")
+        fdf.to_csv(savepath, index=False)
+        print("Saved filler with prosody -> ", savepath)
+        print(
+            f"New/old: {len(fdf)}/{len(df)}",
+        )
+        return fdf
+
 
 if __name__ == "__main__":
 
     parser = ArgumentParser()
     parser.add_argument(
-        "-gp", "--global_prosody_path", default="data/prosody/swb_prosody.csv"
+        "-fp", "--filler_path", default="data/FILLER/all_fillers_test.csv"
     )
-    parser.add_argument("-fp", "--filler_path", default="data/all_fillers.csv")
+    parser.add_argument(
+        "-gp", "--global_prosody_path", default="data/FILLER/swb_prosody.csv"
+    )
     parser.add_argument("--aggregate", action="store_true")
-    parser.add_argument("--fillers", action="store_true")
+    parser.add_argument("--filler", action="store_true")
     args = parser.parse_args()
     for k, v in vars(args).items():
         print(f"{k}: {v}")
 
-    P = Prosody()
+    assert (
+        args.aggregate or args.filler
+    ), "Must provide either '--aggregate' or '--filler'"
 
+    P = Prosody()
     if args.aggregate:
         prosody_df = P.extract_swb_global_prosody(args.global_prosody_path)
 
-    if args.fillers:
+    if args.filler:
         df = P.extract_filler_prosody(args.filler_path, args.global_prosody_path)
