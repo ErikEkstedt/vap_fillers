@@ -17,6 +17,14 @@ def plot_speaker_probs(x, p, ax, label="P", alpha=0.6, colors=["b", "orange"]):
     return ax
 
 
+def plot_vad(vad, ax, frame_hz=50):
+    assert vad.ndim == 1, f"Expects (N_FRAMES, ) got {vad.shape}"
+    ymin, ymax = ax.get_ylim()
+    scale = ymax - ymin
+    x = torch.arange(len(vad)) / frame_hz
+    ax.plot(x, ymin + vad.cpu() * scale, color="w")
+
+
 def plot_bc_probs(x, p_bc, ax, alpha=0.6):
     z = torch.zeros_like(p_bc[:, 0])
     ax.fill_between(x, p_bc[:, 0], z, color="b", label=f"A Short", alpha=alpha)

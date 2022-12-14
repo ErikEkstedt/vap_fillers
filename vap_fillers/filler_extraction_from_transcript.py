@@ -236,12 +236,13 @@ class FillerExtractor:
             self.min_pause_after_filler, self.min_duration_to_other
         )
         print(f"Total fillers: {len(df)}")
-        print(f"Omitted {F.total_is_too_close} entries too close to other speaker")
+        print(f"Omitted {self.total_is_too_close} entries too close to other speaker")
 
         savepath = join(self.root, "all_fillers.csv")
         df.to_csv(savepath, index=False)
         print("Saved ALL -> ", savepath)
 
+        # Save splits
         # I don't know why I need to this...
         # probably wrong types str/int session crap...
         df = pd.read_csv(savepath)

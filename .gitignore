@@ -1,6 +1,7 @@
 # custom
 # don't share data that is not ours (yet)
 data/where_is_the_hesitation/
+data/swb_dialog_acts_utterances/
 results*/
 pyrightconfig.json
 

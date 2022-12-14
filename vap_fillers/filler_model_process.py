@@ -97,13 +97,29 @@ if __name__ == "__main__":
             sample_rate=model.sample_rate,
         )
         waveform = waveform.unsqueeze(0)
-        # Combine filler/omit filler
-        wav_omit = waveform[..., :-filler_samples]
         wav_filler = pad_silence(
             waveform, silence=args.silence, sample_rate=model.sample_rate
         )
+
+        ##################################################
+        # Combine filler/omit filler
+        ##################################################
+        wav_omit = waveform[..., :-filler_samples]
         diff = wav_filler.shape[-1] - wav_omit.shape[-1]
         wav_omit = pad_silence(wav_omit, sil_samples=diff)
+
+        ##################################################
+        # Combine filler/omit filler
+        ##################################################
+        wav_replace = waveform[..., :-filler_samples]
+        replacement = waveform[..., -int(2 * filler_samples) : -filler_samples]
+        wav_replace = torch.cat((wav_replace, replacement), dim=-1)
+        diff = wav_replace.shape[-1] - wav_omit.shape[-1]
+        wav_omit = pad_silence(wav_omit, sil_samples=diff)
+
+        ##################################################
+        # Forward
+        ##################################################
         y = torch.cat([wav_filler, wav_omit])
         out = model.probs(y.to(model.device))
 

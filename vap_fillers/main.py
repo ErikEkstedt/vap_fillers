@@ -7,7 +7,7 @@ from os.path import expanduser, join
 from vap.audio import load_waveform
 from vap.utils import read_json
 
-from vap_fillers.plot_utils import plot_mel_spectrogram, plot_speaker_probs
+from vap_fillers.plot_utils import plot_mel_spectrogram, plot_speaker_probs, plot_vad
 from vap_fillers.utils import load_model, pad_silence, moving_average
 
 # Data
@@ -273,14 +273,6 @@ def extract_and_plot_diff_bars(df, min_dur=0, plot=True):
     if plot:
         plt.pause(0.1)
     return fig, data
-
-
-def plot_vad(vad, ax, frame_hz=50):
-    assert vad.ndim == 1, f"Expects (N_FRAMES, ) got {vad.shape}"
-    ymin, ymax = ax.get_ylim()
-    scale = ymax - ymin
-    x = torch.arange(len(vad)) / frame_hz
-    ax.plot(x, ymin + vad.cpu() * scale, color="w")
 
 
 def plot_filler(
